@@ -2,9 +2,11 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
 import java.io.IOException;
 import java.net.*;
-import java.util.UUID;
+import java.util.ArrayList;
 
 public class Main extends JFrame
 {
@@ -29,10 +31,77 @@ public class Main extends JFrame
         setLayout(new BorderLayout());
         setTitle("Chatt " + System.getProperty("user.name"));
 
+        addWindowListener(new WindowListener()
+        {
+            @Override
+            public void windowOpened(WindowEvent e)
+            {}
+
+            @Override
+            public void windowClosing(WindowEvent e)
+            {
+                try (MulticastSocket multicastSocket = new MulticastSocket())
+                {
+                    InetAddress ip = InetAddress.getByName(address);
+                    InetSocketAddress socketAddress = new InetSocketAddress(ip, port);
+                    NetworkInterface networkInterface = NetworkInterface.getByName(networkInterfaceName);
+                    multicastSocket.joinGroup(socketAddress, networkInterface);
+
+                    String message = "LEAVE:" + System.getProperty("user.name");
+
+                    DatagramPacket datagramPacket = new DatagramPacket(message.getBytes(), message.length(), ip, port);
+                    multicastSocket.send(datagramPacket);
+                }
+                catch (IOException ex)
+                {
+                    ex.printStackTrace();
+                }
+            }
+
+            @Override
+            public void windowClosed(WindowEvent e)
+            {}
+
+            @Override
+            public void windowIconified(WindowEvent e)
+            {}
+
+            @Override
+            public void windowDeiconified(WindowEvent e)
+            {}
+
+            @Override
+            public void windowActivated(WindowEvent e)
+            {}
+
+            @Override
+            public void windowDeactivated(WindowEvent e)
+            {}
+        });
+
         panel = new JPanel(new BorderLayout());
 
         button = new JButton("Koppla ner");
-        button.addActionListener(e -> System.exit(0));
+        button.addActionListener(e ->
+        {
+            try (MulticastSocket multicastSocket = new MulticastSocket())
+            {
+                InetAddress ip = InetAddress.getByName(address);
+                InetSocketAddress socketAddress = new InetSocketAddress(ip, port);
+                NetworkInterface networkInterface = NetworkInterface.getByName(networkInterfaceName);
+                multicastSocket.joinGroup(socketAddress, networkInterface);
+
+                String message = "LEAVE:" + System.getProperty("user.name");
+
+                DatagramPacket datagramPacket = new DatagramPacket(message.getBytes(), message.length(), ip, port);
+                multicastSocket.send(datagramPacket);
+            }
+            catch (IOException ex)
+            {
+                ex.printStackTrace();
+            }
+            System.exit(0);
+        });
 
         textField = new JTextField();
         textField.addKeyListener(new KeyAdapter()
@@ -80,7 +149,7 @@ public class Main extends JFrame
     }
     public static void main(String[] args)
     {
-        int portNumber = 0;
+        int portNumber;
         try
         {
             portNumber = Integer.parseInt(args[0]);
@@ -118,16 +187,27 @@ public class Main extends JFrame
                     window.textArea1.setText(window.textArea1.getText() + new String(datagramPacket.getData(), 4, datagramPacket.getLength()));
                 else if(new String(datagramPacket.getData()).startsWith("HERE:"))
                 {
-                    if(!System.getProperty("user.name").equals(new String(datagramPacket.getData(), 5, datagramPacket.getLength()).trim()))
+                    if(!System.getProperty("user.name").equals(new String(datagramPacket.getData(), 5, datagramPacket.getLength() - 1
+                    ).trim()))
                     {
                         window.textArea2.setText(window.textArea2.getText() + new String(datagramPacket.getData(), 5, datagramPacket.getLength()));
                     }
                 }
+                else if(new String(datagramPacket.getData()).startsWith("LEAVE:"))
+                {
+                    String user = new String(datagramPacket.getData(), 6, datagramPacket.getLength() - 1).trim();
+                    StringBuilder newTextArea = new StringBuilder();
+                    for(String s : window.textArea2.getText().split("\n"))
+                        if(!s.trim().equals(user) && !s.trim().isEmpty())
+                            newTextArea.append(s).append("\n");
+                    window.textArea2.setText(newTextArea.toString());
+                }
                 else
                 {
-                    window.textArea2.setText(window.textArea2.getText() + new String(datagramPacket.getData(), 5, datagramPacket.getLength()));
+                    if(System.getProperty("user.name").equals(new String(datagramPacket.getData(), 5, datagramPacket.getLength()).trim()))
+                        window.textArea2.setText(window.textArea2.getText() + new String(datagramPacket.getData(), 5, datagramPacket.getLength()));
 
-                    message = "HERE:" + System.getProperty("user.name");
+                    message = "HERE:" + System.getProperty("user.name") + "\n";
 
                     datagramPacket = new DatagramPacket(message.getBytes(), message.getBytes().length, ip, window.port);
                     multicastSocket.send(datagramPacket);
