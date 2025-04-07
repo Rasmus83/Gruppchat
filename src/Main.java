@@ -6,7 +6,7 @@ import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.io.IOException;
 import java.net.*;
-import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
 
 public class Main extends JFrame
 {
@@ -18,6 +18,8 @@ public class Main extends JFrame
     JButton button;
     JTextField textField;
     JTextArea textArea1, textArea2;
+    JScrollPane scrollPane1, scrollPane2;
+    JSplitPane splitPane;
 
     public Main(int port, String address, String networkInterfaceName)
     {
@@ -49,7 +51,7 @@ public class Main extends JFrame
 
                     String message = "LEAVE:" + System.getProperty("user.name");
 
-                    DatagramPacket datagramPacket = new DatagramPacket(message.getBytes(), message.length(), ip, port);
+                    DatagramPacket datagramPacket = new DatagramPacket(message.getBytes(StandardCharsets.UTF_8), message.length(), ip, port);
                     multicastSocket.send(datagramPacket);
                 }
                 catch (IOException ex)
@@ -93,7 +95,7 @@ public class Main extends JFrame
 
                 String message = "LEAVE:" + System.getProperty("user.name");
 
-                DatagramPacket datagramPacket = new DatagramPacket(message.getBytes(), message.length(), ip, port);
+                DatagramPacket datagramPacket = new DatagramPacket(message.getBytes(StandardCharsets.UTF_8), message.length(), ip, port);
                 multicastSocket.send(datagramPacket);
             }
             catch (IOException ex)
@@ -120,7 +122,8 @@ public class Main extends JFrame
 
                         String message = "MSG:" + System.getProperty("user.name") + ": " + textField.getText() + "\n";
 
-                        DatagramPacket datagramPacket = new DatagramPacket(message.getBytes(), message.length(), ip, port);
+                        byte[] messageBytes = message.getBytes(StandardCharsets.UTF_8);
+                        DatagramPacket datagramPacket = new DatagramPacket(messageBytes, messageBytes.length, ip, port);
                         multicastSocket.send(datagramPacket);
                     }
                     catch (IOException ex)
@@ -134,14 +137,23 @@ public class Main extends JFrame
         });
 
         textArea1 = new JTextArea();
-        textArea2 = new JTextArea("I chatten just nu:       \n");
         textArea1.setEditable(false);
+        textArea1.setLineWrap(true);
+        textArea1.setWrapStyleWord(true);
+        textArea2 = new JTextArea("I chatten just nu:\n");
         textArea2.setEditable(false);
+        textArea2.setLineWrap(true);
+        textArea2.setWrapStyleWord(true);
+
+        scrollPane1 = new JScrollPane(textArea1);
+        scrollPane2 = new JScrollPane(textArea2);
+
+        splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, scrollPane1, scrollPane2);
+        splitPane.setResizeWeight(1);
 
         panel.add(button, BorderLayout.NORTH);
         panel.add(textField, BorderLayout.SOUTH);
-        panel.add(textArea1, BorderLayout.WEST);
-        panel.add(textArea2, BorderLayout.EAST);
+        panel.add(splitPane, BorderLayout.CENTER);
 
         add(panel);
 
@@ -176,40 +188,45 @@ public class Main extends JFrame
 
             String message = "JOIN:" + System.getProperty("user.name") + "\n";
 
-            DatagramPacket datagramPacket = new DatagramPacket(message.getBytes(), message.getBytes().length, ip, window.port);
+            DatagramPacket datagramPacket = new DatagramPacket(message.getBytes(StandardCharsets.UTF_8), message.getBytes().length, ip, window.port);
             multicastSocket.send(datagramPacket);
 
             while (true)
             {
                 datagramPacket = new DatagramPacket(new byte[1024], 1024);
                 multicastSocket.receive(datagramPacket);
-                if(new String(datagramPacket.getData()).startsWith("MSG:"))
-                    window.textArea1.setText(window.textArea1.getText() + new String(datagramPacket.getData(), 4, datagramPacket.getLength()));
-                else if(new String(datagramPacket.getData()).startsWith("HERE:"))
+
+                String receivedData = new String(datagramPacket.getData(), 0, datagramPacket.getLength(), StandardCharsets.UTF_8);
+
+                if(receivedData.startsWith("MSG:"))
+                    window.textArea1.append(receivedData.substring(4));
+
+                else if(receivedData.startsWith("HERE:"))
                 {
-                    if(!System.getProperty("user.name").equals(new String(datagramPacket.getData(), 5, datagramPacket.getLength() - 1
-                    ).trim()))
+                    if(!System.getProperty("user.name").equals(new String(datagramPacket.getData(), 5, datagramPacket.getLength() - 1, StandardCharsets.UTF_8).trim()))
                     {
-                        window.textArea2.setText(window.textArea2.getText() + new String(datagramPacket.getData(), 5, datagramPacket.getLength()));
+                        window.textArea2.append(receivedData.substring(5));
                     }
                 }
-                else if(new String(datagramPacket.getData()).startsWith("LEAVE:"))
+                else if(receivedData.startsWith("LEAVE:"))
                 {
-                    String user = new String(datagramPacket.getData(), 6, datagramPacket.getLength() - 1).trim();
+                    String user = new String(datagramPacket.getData(), 6, datagramPacket.getLength() - 1, StandardCharsets.UTF_8).trim();
                     StringBuilder newTextArea = new StringBuilder();
+
                     for(String s : window.textArea2.getText().split("\n"))
                         if(!s.trim().equals(user) && !s.trim().isEmpty())
                             newTextArea.append(s).append("\n");
+
                     window.textArea2.setText(newTextArea.toString());
                 }
                 else
                 {
-                    if(System.getProperty("user.name").equals(new String(datagramPacket.getData(), 5, datagramPacket.getLength()).trim()))
-                        window.textArea2.setText(window.textArea2.getText() + new String(datagramPacket.getData(), 5, datagramPacket.getLength()));
+                    if(System.getProperty("user.name").equals(receivedData.substring(5).trim()))
+                        window.textArea2.append(receivedData.substring(5));
 
                     message = "HERE:" + System.getProperty("user.name") + "\n";
 
-                    datagramPacket = new DatagramPacket(message.getBytes(), message.getBytes().length, ip, window.port);
+                    datagramPacket = new DatagramPacket(message.getBytes(StandardCharsets.UTF_8), message.getBytes().length, ip, window.port);
                     multicastSocket.send(datagramPacket);
                 }
             }
