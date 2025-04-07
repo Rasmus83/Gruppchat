@@ -6,7 +6,6 @@ import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.io.IOException;
 import java.net.*;
-import java.util.ArrayList;
 
 public class Main extends JFrame
 {
