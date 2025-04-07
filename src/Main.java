@@ -6,6 +6,7 @@ import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.io.IOException;
 import java.net.*;
+import java.util.ArrayList;
 
 public class Main extends JFrame
 {
@@ -148,6 +149,11 @@ public class Main extends JFrame
     }
     public static void main(String[] args)
     {
+        if(args.length < 3)
+        {
+            System.out.println("Required arguments: <port> <address> <network interface>");
+            return;
+        }
         int portNumber;
         try
         {
@@ -156,11 +162,6 @@ public class Main extends JFrame
         catch(NumberFormatException e)
         {
             System.out.println("Invalid port number: " + args[0]);
-            return;
-        }
-        catch(ArrayIndexOutOfBoundsException e)
-        {
-            System.out.println("No port number");
             return;
         }
         Main window = new Main(portNumber, args[1], args[2]);
