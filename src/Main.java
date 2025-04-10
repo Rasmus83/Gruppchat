@@ -26,6 +26,8 @@ public class Main extends JFrame
     public Main(int port, String address, String networkInterfaceName)
     {
         username = JOptionPane.showInputDialog("Enter your user name");
+        if(username == null)
+            System.exit(0);
         users = new HashSet<String>();
 
         this.port = port;
