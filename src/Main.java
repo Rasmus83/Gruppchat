@@ -188,10 +188,8 @@ public class Main extends JFrame
                 else if(receivedData.startsWith("HERE:"))
                 {
                     if(!window.users.contains(receivedData.substring(5)))
-                    {
                         window.textArea2.append(receivedData.substring(5));
-                        window.users.add(receivedData.substring(5));
-                    }
+                    window.users.add(receivedData.substring(5));
                 }
                 else if(receivedData.startsWith("LEAVE:"))
                 {
@@ -212,8 +210,7 @@ public class Main extends JFrame
                     if(window.username.equals(receivedData.substring(5).trim()))
                     {
                         window.textArea2.append(receivedData.substring(5));
-                        if(!window.users.contains(receivedData.substring(5).trim()))
-                            window.users.add(receivedData.substring(5));
+                        window.users.add(receivedData.substring(5));
                     }
 
                     message = "HERE:" + window.username + "\n";
