@@ -4,12 +4,17 @@ import java.awt.event.*;
 import java.io.IOException;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.Set;
 
 public class Main extends JFrame
 {
     int port;
     String address;
     String networkInterfaceName;
+
+    String username;
+    Set<String> users;
 
     JPanel panel;
     JButton button;
@@ -20,6 +25,9 @@ public class Main extends JFrame
 
     public Main(int port, String address, String networkInterfaceName)
     {
+        username = JOptionPane.showInputDialog("Enter your user name");
+        users = new HashSet<String>();
+
         this.port = port;
         this.address = address;
         this.networkInterfaceName = networkInterfaceName;
@@ -28,7 +36,7 @@ public class Main extends JFrame
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
-        setTitle("Chatt " + System.getProperty("user.name"));
+        setTitle("Chatt " + username);
 
         addWindowListener(new WindowAdapter()
         {
@@ -42,7 +50,7 @@ public class Main extends JFrame
                     NetworkInterface networkInterface = NetworkInterface.getByName(networkInterfaceName);
                     multicastSocket.joinGroup(socketAddress, networkInterface);
 
-                    String message = "LEAVE:" + System.getProperty("user.name");
+                    String message = "LEAVE:" + username;
 
                     DatagramPacket datagramPacket = new DatagramPacket(message.getBytes(StandardCharsets.UTF_8), message.length(), ip, port);
                     multicastSocket.send(datagramPacket);
@@ -66,7 +74,7 @@ public class Main extends JFrame
                 NetworkInterface networkInterface = NetworkInterface.getByName(networkInterfaceName);
                 multicastSocket.joinGroup(socketAddress, networkInterface);
 
-                String message = "LEAVE:" + System.getProperty("user.name");
+                String message = "LEAVE:" + username;
 
                 DatagramPacket datagramPacket = new DatagramPacket(message.getBytes(StandardCharsets.UTF_8), message.length(), ip, port);
                 multicastSocket.send(datagramPacket);
@@ -93,7 +101,7 @@ public class Main extends JFrame
                         NetworkInterface networkInterface = NetworkInterface.getByName(networkInterfaceName);
                         multicastSocket.joinGroup(socketAddress, networkInterface);
 
-                        String message = "MSG:" + System.getProperty("user.name") + ": " + textField.getText() + "\n";
+                        String message = "MSG:" + username + ": " + textField.getText() + "\n";
 
                         byte[] messageBytes = message.getBytes(StandardCharsets.UTF_8);
                         DatagramPacket datagramPacket = new DatagramPacket(messageBytes, messageBytes.length, ip, port);
@@ -149,6 +157,7 @@ public class Main extends JFrame
             System.out.println("Invalid port number: " + args[0]);
             return;
         }
+
         Main window = new Main(portNumber, args[1], args[2]);
 
         try(MulticastSocket multicastSocket = new MulticastSocket(window.port))
@@ -159,7 +168,7 @@ public class Main extends JFrame
 
             multicastSocket.joinGroup(socketAddress, networkInterface);
 
-            String message = "JOIN:" + System.getProperty("user.name") + "\n";
+            String message = "JOIN:" + window.username + "\n";
 
             DatagramPacket datagramPacket = new DatagramPacket(message.getBytes(StandardCharsets.UTF_8), message.getBytes().length, ip, window.port);
             multicastSocket.send(datagramPacket);
@@ -176,9 +185,10 @@ public class Main extends JFrame
 
                 else if(receivedData.startsWith("HERE:"))
                 {
-                    if(!System.getProperty("user.name").equals(new String(datagramPacket.getData(), 5, datagramPacket.getLength() - 1, StandardCharsets.UTF_8).trim()))
+                    if(!window.users.contains(receivedData.substring(5)))
                     {
                         window.textArea2.append(receivedData.substring(5));
+                        window.users.add(receivedData.substring(5));
                     }
                 }
                 else if(receivedData.startsWith("LEAVE:"))
@@ -186,18 +196,25 @@ public class Main extends JFrame
                     String user = new String(datagramPacket.getData(), 6, datagramPacket.getLength() - 1, StandardCharsets.UTF_8).trim();
                     StringBuilder newTextArea = new StringBuilder();
 
+                    if(window.users.contains(user))
+                        window.users.remove(user);
+
                     for(String s : window.textArea2.getText().split("\n"))
                         if(!s.trim().equals(user) && !s.trim().isEmpty())
                             newTextArea.append(s).append("\n");
 
                     window.textArea2.setText(newTextArea.toString());
                 }
-                else
+                else if(receivedData.startsWith("JOIN:"))
                 {
-                    if(System.getProperty("user.name").equals(receivedData.substring(5).trim()))
+                    if(window.username.equals(receivedData.substring(5).trim()))
+                    {
                         window.textArea2.append(receivedData.substring(5));
+                        if(!window.users.contains(receivedData.substring(5).trim()))
+                            window.users.add(receivedData.substring(5));
+                    }
 
-                    message = "HERE:" + System.getProperty("user.name") + "\n";
+                    message = "HERE:" + window.username + "\n";
 
                     datagramPacket = new DatagramPacket(message.getBytes(StandardCharsets.UTF_8), message.getBytes().length, ip, window.port);
                     multicastSocket.send(datagramPacket);
